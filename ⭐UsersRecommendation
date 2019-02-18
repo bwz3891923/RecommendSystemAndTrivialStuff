@@ -1,0 +1,118 @@
+##获取用户ID及看过的电影，做推荐度分析
+from math import sqrt
+import requests
+import random
+import urllib
+import time
+import json
+import sys
+import re
+
+def getMember(url='https://www.douban.com/group/movie_view/members'):
+    mem_id,trans=[],[]
+    non_bmp_map = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
+    rq=urllib.request.Request(url)
+    print(rq)
+    page=urllib.request.urlopen(rq)
+    page=page.read().decode().translate(non_bmp_map)
+
+    mems=re.findall(r'https://www.douban.com/people/\d*/',page)
+    for mem in mems:
+        ls=re.split('/',mem)[4]
+        mem_id.append(ls)
+    mem_id=set(mem_id)
+    for a in mem_id:
+        trans.append(a)
+        
+
+    return trans
+
+def get_us_collect(user):
+    mov_collects,user_dict,all_items=[],{},{}
+    user_dict[user]={}
+    
+    for page in range(0,5):
+        url="https://movie.douban.com/people/%s/collect?start=%d&sort=time&rating=all&filter=all&mode=grid"%(user,page*15)
+        non_bmp_map = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
+        rq=urllib.request.Request(url)
+        rq=urllib.request.urlopen(rq)
+        page=rq.read().decode().translate(non_bmp_map)
+        mov_collect=re.findall(r'https://movie.douban.com/subject/\d*/',page)
+        mov_collects+=mov_collect
+        time.sleep(2)
+
+    mov_collects=set(mov_collects)
+    for item in mov_collects:
+        user_dict[user][item]=1.0
+        all_items[item]=1.0
+
+    print(user_dict,'\n',all_items)
+
+    return (user_dict,all_items)
+
+def getdata(count='10'):
+    user_dicts,all_items={},{}
+    ids=getMember()
+    print("ID:  ",ids)
+    for id_ in ids:
+        user_dict,all_item=get_us_collect(id_)
+        user_dicts=dict(user_dicts,**user_dict)
+        all_items=dict(all_items,**all_item)
+        time.sleep(4)
+
+    print("\n\nUser_item:",user_dicts,"\n\nAll items:",all_items)
+    for id_ in ids:           
+        for item in all_items.keys():
+            if item not in user_dicts[id_]:
+                user_dicts[id_][item]=0
+
+    print("\n\n\nFinal dict:\n",user_dicts,"\n\n\n\n\nAll Item:\n",all_items)
+    return user_dicts,all_items
+        
+        
+def sim_pearson(prefs,p1,p2):  #皮尔逊相关
+    si={}
+    for item in prefs[p1]:
+        if item in prefs[p2]: si[item]=1
+
+    n=len(si)
+    if n==0:return 0
+
+    sum1=sum([prefs[p1][it] for it in si ])
+    sum2=sum([prefs[p2][it] for it in si ])
+
+    sum1Sq=sum([pow(prefs[p1][it],2) for it in si])
+    sum2Sq=sum([pow(prefs[p2][it],2) for it in si])
+
+    pSum=sum([prefs[p1][it]*prefs[p2][it] for it in si])
+
+    num=pSum-(sum1*sum2)/n
+    den=sqrt((sum1Sq-(pow(sum1,2)/n))*(sum2Sq-(pow(sum2,2)/n)))
+
+    if den == 0: return 0
+    r=num/den
+
+    return r
+
+def topMatches(prefs,person,n=5,similarity=sim_pearson): #相似度
+    scores=[(similarity(prefs,person,other),other) 
+            for other in prefs if other != person]
+    scores.sort()
+    scores.reverse()
+    return scores[0:n]
+
+def MatchAll(prefs,recommand=topMatches): #全体相似度检索
+    for person in prefs:
+        print("Host :",person.title())
+        print(recommand(prefs,person))
+
+def main():
+    user_dicts,all_items=getdata()
+    print(MatchAll(user_dicts))
+
+main()
+    
+    
+    
+
+
