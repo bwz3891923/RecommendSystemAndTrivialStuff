@@ -1,0 +1,65 @@
+import requests
+import json
+import re
+import time
+
+def main(url):
+    books=[]
+    filename='rank.txt'
+    r=requests.get(url)
+    print(r.status_code)
+    if str(r.status_code) != '200':
+        time.sleep(5)
+        print("Retrying")
+        operate()
+    r=r.text
+    f=re.findall(r"book.douban.com/subject/\d*",r)
+    
+    for a in f:
+        b=re.split('/',a)[2]
+        books.append(b)
+
+    for j in range(3):
+        for i in books:
+            books.remove(i)
+            if i not in books:
+                books.append(i)
+    print(books)
+
+
+    for book in books:
+        s=getStar(book)
+        print("ID:"+book)
+        print(s)
+
+        with open(filename,'a') as f_obj:
+            f_obj.write("ID:"+book+"\n")
+            for x,y in s.items():
+                f_obj.write(x+":"+str(y)+"\n")
+                
+     
+
+def getStar(book):
+    dict_0={}
+    url="https://book.douban.com/subject/"+book
+    r=requests.get(url)
+    r=r.text
+    
+    star=str(re.search(r'bigstar\d+',r))
+    star=float(star[-4:-2])
+    
+    bookname=str(re.search(r'\<title\>.*\(豆瓣\)\<\/title\>',r))
+    bookname=bookname.split('<title>')
+    bookname=bookname[1].split('(豆瓣)')
+    dict_0[bookname[0]]=star/5
+    return dict_0
+    
+def operate():
+    url='https://book.douban.com/tag/%E6%97%A5%E6%9C%AC%E6%96%87%E5%AD%A6'
+    main(url)
+    for i in range(1,10):
+        time.sleep(10)
+        back=('?start=%s&type=T'%i*20)
+        main(url+back)
+
+operate()
