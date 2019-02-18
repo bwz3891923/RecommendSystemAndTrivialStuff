@@ -1,0 +1,68 @@
+import requests
+import urllib
+import time
+import json
+import sys
+import re
+
+def getMember(url='https://www.douban.com/group/movie_view/members'):
+    mem_id=[]
+    non_bmp_map = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
+    rq=urllib.request.Request(url)
+    print(rq)
+    page=urllib.request.urlopen(rq)
+    page=page.read().decode().translate(non_bmp_map)
+
+    mems=re.findall(r'https://www.douban.com/people/\d*/',page)
+    for mem in mems:
+        ls=re.split('/',mem)[4]
+        mem_id.append(ls)
+
+    return mem_id
+
+def gainData(usid):
+    url="https://api.douban.com/v2/user/"+usid
+    non_bmp_map = dict.fromkeys(range(0x10000, sys.maxunicode + 1), 0xfffd)
+    r=requests.get(url)
+    r=r.json()
+
+    try:
+        print(r)
+    except:
+        pass
+
+    write_down_json(r)
+    time.sleep(3)
+    
+def write_down_id(data):
+    filename='id.txt'
+    with open(filename,'a') as fl:
+        fl.write(str(data))
+
+def write_down_json(data):
+    try:
+        filename="usid\%s.json"%data['uid']
+    except:
+        filename="usid\UNKNOW_USER.json"
+        
+    with open(filename,'a') as f:  
+            f.write(json.dumps(data))
+
+        
+
+def main():
+    group1=getMember()
+    write_down_id(group1)
+    print(group1)
+    for group in group1:
+        gainData(group)
+    
+
+
+
+
+
+
+
+
+main()
